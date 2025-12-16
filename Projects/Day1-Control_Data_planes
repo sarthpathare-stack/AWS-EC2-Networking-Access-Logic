@@ -1,1 +1,308 @@
+#!/usr/bin/env python3
+"""
+EC2 LAUNCH SIMULATOR
+====================
+Shows Control Plane & Data Plane phases
+"""
 
+import time
+import random
+
+def clear_screen():
+    """Clear screen"""
+    print("\n" * 50)
+
+def print_header():
+    """Print header"""
+    print("=" * 50)
+    print("🚀 EC2 LAUNCH SIMULATOR")
+    print("=" * 50)
+    print()
+
+def simulate_control_plane():
+    """Simulate Control Plane checks"""
+    print("📋 CONTROL PLANE CHECKS")
+    print("-" * 30)
+    
+    checks = [
+        ("IAM Permission", 0.9),      # 90% success
+        ("AMI Exists", 0.8),          # 80% success  
+        ("Subnet Exists", 0.95),      # 95% success
+        ("Security Group", 0.7),      # 70% success
+        ("Key Pair", 0.6),            # 60% success
+    ]
+    
+    all_passed = True
+    results = []
+    
+    for check_name, success_rate in checks:
+        print(f"Checking {check_name}...", end=" ")
+        time.sleep(0.5)
+        
+        passed = random.random() < success_rate
+        if passed:
+            print("✅ PASS")
+        else:
+            print("❌ FAIL")
+            all_passed = False
+        
+        results.append((check_name, passed))
+        time.sleep(0.3)
+    
+    return all_passed, results
+
+def simulate_data_plane(launch_approved):
+    """Simulate Data Plane phase"""
+    print()
+    print("💻 DATA PLANE")
+    print("-" * 30)
+    
+    if not launch_approved:
+        print("Launch denied ❌")
+        print("Instance state: TERMINATED")
+        return
+    
+    print("Launch approved ✅")
+    time.sleep(0.5)
+    
+    print("Instance state: PENDING...", end=" ")
+    time.sleep(1)
+    print("RUNNING ✅")
+    time.sleep(0.5)
+    
+    print()
+    print("Checking connectivity...")
+    print("-" * 20)
+    
+    # Network check
+    print("Network connection...", end=" ")
+    time.sleep(0.7)
+    network_ok = random.random() < 0.7
+    if network_ok:
+        print("✅ WORKING")
+    else:
+        print("❌ BROKEN (no route to host)")
+    
+    # IAM Role check
+    print("IAM Role attachment...", end=" ")
+    time.sleep(0.7)
+    iam_ok = random.random() < 0.8
+    if iam_ok:
+        print("✅ ATTACHED")
+    else:
+        print("❌ NOT ATTACHED")
+    
+    # SSH access check
+    print("SSH access...", end=" ")
+    time.sleep(0.7)
+    ssh_ok = network_ok and random.random() < 0.6
+    if ssh_ok:
+        print("✅ AVAILABLE")
+    else:
+        print("❌ UNREACHABLE")
+    
+    return network_ok, iam_ok
+
+def show_summary(control_passed, data_plane_results):
+    """Show launch summary"""
+    print()
+    print("=" * 50)
+    print("📊 LAUNCH SUMMARY")
+    print("=" * 50)
+    
+    if not control_passed:
+        print("❌ LAUNCH FAILED - Control Plane denied")
+        print()
+        print("Root cause:")
+        print("-" * 20)
+        print("• IAM permissions missing")
+        print("• AMI not found") 
+        print("• Subnet doesn't exist")
+        print("• Security group issues")
+        return
+    
+    network_ok, iam_ok = data_plane_results
+    
+    if network_ok and iam_ok:
+        print("✅ LAUNCH SUCCESSFUL!")
+        print()
+        print("Instance is fully operational:")
+        print("- Network: ✅ Working")
+        print("- IAM Role: ✅ Attached")
+        print("- SSH: ✅ Available")
+    else:
+        print("⚠️ LAUNCH PARTIAL SUCCESS")
+        print()
+        print("Issues detected:")
+        if not network_ok:
+            print("- Network: ❌ Broken (check routes)")
+        if not iam_ok:
+            print("- IAM Role: ❌ Not attached")
+        print()
+        print("Instance is running but may have issues.")
+
+def quick_simulation():
+    """Quick one-run simulation"""
+    clear_screen()
+    print_header()
+    
+    print("Simulating EC2 launch request...")
+    time.sleep(1)
+    print()
+    
+    # Control Plane
+    print("1️⃣ CONTROL PLANE PHASE")
+    print("=" * 30)
+    control_passed, _ = simulate_control_plane()
+    
+    print()
+    
+    # Data Plane
+    print("2️⃣ DATA PLANE PHASE")
+    print("=" * 30)
+    if control_passed:
+        data_results = simulate_data_plane(True)
+        show_summary(control_passed, data_results)
+    else:
+        simulate_data_plane(False)
+        show_summary(control_passed, None)
+    
+    print()
+    print("=" * 50)
+
+def main():
+    """Main interactive menu"""
+    while True:
+        clear_screen()
+        print_header()
+        
+        print("What would you like to do?")
+        print("1. 🚀 Run EC2 launch simulation")
+        print("2. 📚 Learn about phases")
+        print("3. 🔁 Run multiple simulations")
+        print("0. 🚪 Exit")
+        print()
+        
+        choice = input("Enter choice (0-3): ").strip()
+        
+        if choice == "1":
+            quick_simulation()
+            input("\nPress Enter to continue...")
+        
+        elif choice == "2":
+            clear_screen()
+            print_header()
+            print("📚 EC2 LAUNCH PHASES")
+            print("=" * 30)
+            print()
+            
+            print("1️⃣ CONTROL PLANE (API Checks):")
+            print("-" * 25)
+            print("• Checks IAM permissions")
+            print("• Verifies AMI exists")
+            print("• Validates subnet exists")
+            print("• Verifies security groups")
+            print("• Validates key pair")
+            print("→ If ANY fails: launch denied")
+            print()
+            
+            print("2️⃣ DATA PLANE (Actual Launch):")
+            print("-" * 25)
+            print("• Instance moves to RUNNING")
+            print("• Network connectivity tested")
+            print("• IAM role attached to instance")
+            print("• SSH access verified")
+            print("→ Can still fail after control plane")
+            print()
+            
+            print("Key difference:")
+            print("Control Plane = PERMISSION to launch")
+            print("Data Plane = ACTUAL launch & connectivity")
+            
+            input("\nPress Enter to continue...")
+        
+        elif choice == "3":
+            clear_screen()
+            print_header()
+            
+            num_runs = input("How many simulations? (1-10): ").strip()
+            try:
+                num_runs = int(num_runs)
+                if num_runs < 1 or num_runs > 10:
+                    num_runs = 3
+            except:
+                num_runs = 3
+            
+            success_count = 0
+            
+            for i in range(num_runs):
+                print(f"\nRun {i+1}/{num_runs}")
+                print("-" * 20)
+                
+                control_passed = random.random() < 0.7  # 70% pass rate
+                
+                print("Control Plane...", end=" ")
+                if control_passed:
+                    print("✅ PASSED")
+                    success_count += 1
+                else:
+                    print("❌ FAILED")
+                
+                time.sleep(0.5)
+            
+            print()
+            print("=" * 30)
+            print(f"RESULTS: {success_count}/{num_runs} successful")
+            print(f"Success rate: {(success_count/num_runs)*100:.1f}%")
+            
+            input("\nPress Enter to continue...")
+        
+        elif choice == "0":
+            print("\nGoodbye! 🚀")
+            break
+        
+        else:
+            print("Invalid choice!")
+            time.sleep(1)
+
+# Super simple version (one-liner ready)
+def super_simple():
+    """Super simple version"""
+    print("=" * 40)
+    print("EC2 LAUNCH SIMULATOR")
+    print("=" * 40)
+    print()
+    
+    print("1️⃣ CONTROL PLANE:")
+    print("- IAM Permission: ✅ PASS")
+    print("- AMI Exists: ✅ PASS") 
+    print("- Subnet Exists: ✅ PASS")
+    print("- Security Group: ✅ PASS")
+    print("- Key Pair: ✅ PASS")
+    print("→ LAUNCH APPROVED ✅")
+    print()
+    
+    print("2️⃣ DATA PLANE:")
+    print("- Instance: RUNNING ✅")
+    print("- Network: ✅ WORKING")
+    print("- IAM Role: ✅ ATTACHED")
+    print("- SSH: ✅ AVAILABLE")
+    print()
+    print("✅ LAUNCH SUCCESSFUL!")
+    print("=" * 40)
+
+# Run the tool
+if __name__ == "__main__":
+    clear_screen()
+    
+    print("Choose version:")
+    print("1. Interactive simulator")
+    print("2. Quick one-page view")
+    
+    choice = input("\nChoice (1 or 2): ").strip()
+    
+    if choice == "1":
+        main()
+    else:
+        clear_screen()
+        super_simple()
