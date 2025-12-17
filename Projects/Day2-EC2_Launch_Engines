@@ -1,0 +1,316 @@
+#!/usr/bin/env python3
+"""
+EC2 LAUNCH DECISION SIMULATOR
+==============================
+Simple but complete decision engine
+"""
+
+import random
+
+# Available instance types with specs and prices
+INSTANCE_TYPES = {
+    "t3.micro": {"vCPU": 2, "RAM": 1, "OnDemand": 0.0104, "Spot": 0.0031, "SavingsPlan": 0.0062},
+    "t3.small": {"vCPU": 2, "RAM": 2, "OnDemand": 0.0208, "Spot": 0.0062, "SavingsPlan": 0.0125},
+    "t3.medium": {"vCPU": 2, "RAM": 4, "OnDemand": 0.0416, "Spot": 0.0125, "SavingsPlan": 0.0250},
+    "m5.large": {"vCPU": 2, "RAM": 8, "OnDemand": 0.0960, "Spot": 0.0288, "SavingsPlan": 0.0576},
+    "m5.xlarge": {"vCPU": 4, "RAM": 16, "OnDemand": 0.1920, "Spot": 0.0576, "SavingsPlan": 0.1152},
+    "c5.xlarge": {"vCPU": 4, "RAM": 8, "OnDemand": 0.1700, "Spot": 0.0510, "SavingsPlan": 0.1020},
+    "r5.large": {"vCPU": 2, "RAM": 16, "OnDemand": 0.1260, "Spot": 0.0378, "SavingsPlan": 0.0756},
+}
+
+# AWS Regions and AZs
+REGIONS = {
+    "us-east-1": ["us-east-1a", "us-east-1b", "us-east-1c"],
+    "us-west-2": ["us-west-2a", "us-west-2b", "us-west-2c"],
+    "eu-west-1": ["eu-west-1a", "eu-west-1b", "eu-west-1c"],
+}
+
+# Workload types
+WORKLOADS = {
+    "web": {"min_vCPU": 1, "min_RAM": 1, "stateful": False, "burst": True},
+    "app": {"min_vCPU": 2, "min_RAM": 4, "stateful": False, "burst": True},
+    "db": {"min_vCPU": 2, "min_RAM": 8, "stateful": True, "burst": False},
+    "cache": {"min_vCPU": 2, "min_RAM": 8, "stateful": False, "burst": False},
+    "batch": {"min_vCPU": 4, "min_RAM": 8, "stateful": False, "burst": True},
+}
+
+# Pricing models
+PRICING_MODELS = ["OnDemand", "Spot", "SavingsPlan", "Reserved"]
+
+def display_header():
+    """Display header"""
+    print("=" * 60)
+    print("EC2 LAUNCH DECISION SIMULATOR")
+    print("=" * 60)
+    print()
+
+def get_user_input():
+    """Get user input for launch request"""
+    print("📝 LAUNCH REQUEST FORM")
+    print("-" * 40)
+    
+    # Workload type
+    print("\nSelect workload type:")
+    for i, (name, _) in enumerate(WORKLOADS.items(), 1):
+        print(f"{i}. {name.upper()}")
+    wl_choice = int(input(f"\nChoice (1-{len(WORKLOADS)}): ")) - 1
+    workload = list(WORKLOADS.keys())[wl_choice]
+    
+    # Instance type
+    print("\nSelect instance type:")
+    instances = list(INSTANCE_TYPES.keys())
+    for i, inst in enumerate(instances, 1):
+        specs = INSTANCE_TYPES[inst]
+        print(f"{i}. {inst} ({specs['vCPU']}vCPU, {specs['RAM']}GB RAM)")
+    inst_choice = int(input(f"\nChoice (1-{len(instances)}): ")) - 1
+    instance_type = instances[inst_choice]
+    
+    # Region
+    print("\nSelect region:")
+    regions = list(REGIONS.keys())
+    for i, reg in enumerate(regions, 1):
+        print(f"{i}. {reg}")
+    reg_choice = int(input(f"\nChoice (1-{len(regions)}): ")) - 1
+    region = regions[reg_choice]
+    
+    # Pricing model
+    print("\nSelect pricing model:")
+    for i, model in enumerate(PRICING_MODELS, 1):
+        print(f"{i}. {model}")
+    price_choice = int(input(f"\nChoice (1-{len(PRICING_MODELS)}): ")) - 1
+    pricing_model = PRICING_MODELS[price_choice]
+    
+    return {
+        "workload": workload,
+        "instance_type": instance_type,
+        "region": region,
+        "pricing_model": pricing_model
+    }
+
+def check_capacity(region, instance_type):
+    """Check if capacity is available"""
+    # Simulate random capacity (70% chance available)
+    azs = REGIONS[region]
+    available_az = None
+    
+    for az in azs:
+        if random.random() > 0.3:  # 70% chance available
+            available_az = az
+            break
+    
+    return available_az
+
+def check_instance_sizing(workload, instance_type):
+    """Check if instance is properly sized"""
+    workload_specs = WORKLOADS[workload]
+    instance_specs = INSTANCE_TYPES[instance_type]
+    
+    issues = []
+    
+    # Check if undersized
+    if instance_specs["vCPU"] < workload_specs["min_vCPU"]:
+        issues.append(f"UNDERSIZED: Needs {workload_specs['min_vCPU']}vCPU, has {instance_specs['vCPU']}vCPU")
+    
+    if instance_specs["RAM"] < workload_specs["min_RAM"]:
+        issues.append(f"UNDERSIZED: Needs {workload_specs['min_RAM']}GB RAM, has {instance_specs['RAM']}GB RAM")
+    
+    # Check if oversized (>2x requirements)
+    if instance_specs["vCPU"] > workload_specs["min_vCPU"] * 2:
+        issues.append(f"OVERSIZED: Needs {workload_specs['min_vCPU']}vCPU, has {instance_specs['vCPU']}vCPU")
+    
+    if instance_specs["RAM"] > workload_specs["min_RAM"] * 2:
+        issues.append(f"OVERSIZED: Needs {workload_specs['min_RAM']}GB RAM, has {instance_specs['RAM']}GB RAM")
+    
+    return issues
+
+def check_pricing_risks(pricing_model, workload):
+    """Check for pricing model risks"""
+    risks = []
+    workload_specs = WORKLOADS[workload]
+    
+    # Rule: Spot + Stateful workload = Warning
+    if pricing_model == "Spot" and workload_specs["stateful"]:
+        risks.append("⚠️ SPOT + STATEFUL: Spot instances can be interrupted, risky for stateful workloads")
+    
+    # Rule: OnDemand for burstable = OK
+    if pricing_model == "OnDemand" and workload_specs["burst"]:
+        risks.append("💰 ONDEMAND + BURST: Consider Savings Plan for cost savings on burstable workloads")
+    
+    # Rule: Reserved for new workload = Warning
+    if pricing_model == "Reserved":
+        risks.append("📅 RESERVED: 1-3 year commitment, ensure workload will run that long")
+    
+    return risks
+
+def calculate_cost(instance_type, pricing_model):
+    """Calculate hourly cost"""
+    instance = INSTANCE_TYPES[instance_type]
+    return instance[pricing_model]
+
+def make_decision(request):
+    """Make final launch decision"""
+    decision = {
+        "approved": False,
+        "reasons": [],
+        "warnings": [],
+        "cost": 0,
+        "az": None
+    }
+    
+    # 1. Check capacity
+    available_az = check_capacity(request["region"], request["instance_type"])
+    if not available_az:
+        decision["reasons"].append("❌ DENIED: No capacity available in any AZ")
+        return decision
+    
+    decision["az"] = available_az
+    decision["reasons"].append(f"✅ Capacity available in {available_az}")
+    
+    # 2. Check sizing
+    sizing_issues = check_instance_sizing(request["workload"], request["instance_type"])
+    for issue in sizing_issues:
+        if "OVERSIZED" in issue:
+            decision["warnings"].append(issue)
+        else:
+            decision["reasons"].append(f"❌ {issue}")
+    
+    # 3. Check pricing risks
+    pricing_risks = check_pricing_risks(request["pricing_model"], request["workload"])
+    decision["warnings"].extend(pricing_risks)
+    
+    # 4. Calculate cost
+    hourly_cost = calculate_cost(request["instance_type"], request["pricing_model"])
+    decision["cost"] = hourly_cost
+    
+    # Monthly cost estimate
+    monthly_cost = hourly_cost * 24 * 30
+    
+    # 5. Cost warnings
+    if hourly_cost > 0.1:  # More than $0.10 per hour
+        decision["warnings"].append(f"💸 HIGH COST: ${hourly_cost:.4f}/hr (${monthly_cost:.2f}/month)")
+    
+    # 6. Final approval
+    # Deny if any DENIED reasons
+    denied_reasons = [r for r in decision["reasons"] if "❌" in r]
+    
+    if not denied_reasons:
+        decision["approved"] = True
+        decision["reasons"].append("✅ APPROVED: All checks passed")
+    else:
+        decision["reasons"].append("❌ LAUNCH DENIED")
+    
+    return decision
+
+def display_results(request, decision):
+    """Display decision results"""
+    print("\n" + "=" * 60)
+    print("🎯 LAUNCH DECISION")
+    print("=" * 60)
+    
+    print(f"\n📋 Request Details:")
+    print(f"  Workload:      {request['workload'].upper()}")
+    print(f"  Instance:      {request['instance_type']}")
+    print(f"  Region:        {request['region']}")
+    print(f"  Pricing:       {request['pricing_model']}")
+    
+    print(f"\n📊 Decision: ", end="")
+    if decision["approved"]:
+        print("✅ APPROVED")
+    else:
+        print("❌ DENIED")
+    
+    print(f"\n💵 Cost: ${decision['cost']:.4f}/hr")
+    if decision["az"]:
+        print(f"📍 AZ: {decision['az']}")
+    
+    print(f"\n📝 Reasons:")
+    for reason in decision["reasons"]:
+        print(f"  {reason}")
+    
+    if decision["warnings"]:
+        print(f"\n⚠️  Warnings:")
+        for warning in decision["warnings"]:
+            print(f"  {warning}")
+
+def quick_sim():
+    """Quick simulation mode"""
+    print("\n🧪 QUICK SIMULATION MODE")
+    print("-" * 40)
+    
+    # Simulate 5 random launches
+    workloads = list(WORKLOADS.keys())
+    instances = list(INSTANCE_TYPES.keys())
+    regions = list(REGIONS.keys())
+    
+    for i in range(1, 6):
+        print(f"\nSimulation {i}:")
+        
+        request = {
+            "workload": random.choice(workloads),
+            "instance_type": random.choice(instances),
+            "region": random.choice(regions),
+            "pricing_model": random.choice(PRICING_MODELS)
+        }
+        
+        print(f"  {request['workload']} on {request['instance_type']} ({request['pricing_model']}) in {request['region']}")
+        
+        decision = make_decision(request)
+        
+        if decision["approved"]:
+            print(f"  Result: ✅ Approved (${decision['cost']:.4f}/hr)")
+        else:
+            print(f"  Result: ❌ Denied")
+
+def main():
+    """Main function"""
+    display_header()
+    
+    while True:
+        print("\nChoose mode:")
+        print("1. 🎯 Single Launch Decision")
+        print("2. 🧪 Quick Simulation (5 random)")
+        print("3. 📖 Help / Rules")
+        print("4. 🚪 Exit")
+        
+        choice = input("\nChoice (1-4): ").strip()
+        
+        if choice == "1":
+            request = get_user_input()
+            decision = make_decision(request)
+            display_results(request, decision)
+            
+            # Ask to save
+            save = input("\nSave this decision? (y/n): ").lower()
+            if save == 'y':
+                with open("ec2_decision.txt", "a") as f:
+                    f.write(f"\n{'APPROVED' if decision['approved'] else 'DENIED'} - {request}\n")
+                print("✅ Decision saved to ec2_decision.txt")
+        
+        elif choice == "2":
+            quick_sim()
+        
+        elif choice == "3":
+            print("\n📖 DECISION RULES:")
+            print("-" * 40)
+            print("1. ❌ DENY if no capacity in any AZ")
+            print("2. ⚠️  WARN if Spot + Stateful workload")
+            print("3. ⚠️  WARN if instance is oversized")
+            print("4. 💸 FLAG cost if > $0.10/hr")
+            print("5. ❌ DENY if instance is undersized")
+            print("\nWorkload Requirements:")
+            for name, specs in WORKLOADS.items():
+                print(f"  {name}: {specs['min_vCPU']}vCPU, {specs['min_RAM']}GB RAM {'(stateful)' if specs['stateful'] else ''}")
+        
+        elif choice == "4":
+            print("\n👋 Goodbye!")
+            break
+        
+        else:
+            print("❌ Invalid choice")
+        
+        input("\nPress Enter to continue...")
+        print("\n" + "=" * 60)
+
+# Run the simulator
+if __name__ == "__main__":
+    main()
