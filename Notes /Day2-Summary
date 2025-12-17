@@ -1,0 +1,75 @@
+EC2/Cloud Learning Module Template
+1️⃣ Module Title
+
+Example: EC2 Launch Decision Simulator / Instance Sizing & Cost Evaluation
+
+2️⃣ Learning Objective
+
+State what this code teaches.
+
+Example: Simulate EC2 instance launch decisions including capacity, instance sizing, AZ selection, pricing model, and cost awareness.
+
+3️⃣ Code Overview
+
+Short description of what the code does.
+
+Mention:
+
+User input / interactive options
+
+Automated simulations (random)
+
+Decision logic layers
+
+4️⃣ Key Functions / Logic
+
+List major functions and their purpose.
+
+Example:
+
+Function	Purpose
+get_user_input()	Collects user choices for workload, instance type, region, pricing model
+check_capacity()	Simulates availability in AZs
+check_instance_sizing()	Checks if instance is undersized or oversized for workload
+check_pricing_risks()	Flags potential pricing pitfalls
+make_decision()	Combines all checks to approve/deny launch
+display_results()	Prints decision, warnings, cost, AZ
+5️⃣ Key Concepts Reinforced
+
+Capacity planning (AZ availability)
+
+Instance sizing (vCPU/RAM vs workload)
+
+Pricing model awareness (OnDemand, Spot, Reserved, Savings Plan)
+
+Cost evaluation (hourly/monthly estimate)
+
+Risk awareness (Spot + stateful, high cost, oversized instances)
+
+Decision reasoning (✅ approve vs ❌ deny + warnings)
+
+6️⃣ Suggestions / Observations
+
+List learning-focused improvements or notes:
+
+Input validation
+
+More realistic capacity simulation
+
+Optional cost extensions (annual cost, multi-AZ)
+
+Optional richer workload types (memory/CPU intensive)
+
+Extensibility for more regions or instance types
+
+7️⃣ Conclusion
+
+Summarize what the learner gains.
+
+Example:
+
+Learner now understands the EC2 launch decision flow, trade-offs between cost, availability, and performance, and can reason about instance selection programmatically.
+
+8️⃣ Important Note
+
+This code is NOT production-grade. It is only a learning simulation to prove your understanding of EC2 networking, instance sizing, and cost management.
