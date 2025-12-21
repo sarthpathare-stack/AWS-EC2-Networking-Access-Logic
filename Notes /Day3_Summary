@@ -1,0 +1,106 @@
+EC2 Boot Executor Simulation (User Data Execution)
+What This Simulation Represents
+
+This simulates EC2 User Data execution during instance boot.
+
+User data is not a service, it is a one-time boot-time instruction executed by the instance itself.
+
+Your simulator models the behavioral truth of EC2 boot — not the AWS internals — which is exactly correct for learning.
+
+Core Boot Execution Rules (Truth Model)
+1️⃣ Script Runs Only Once
+
+User data executes only during first boot
+
+Reboots do not re-run the script
+
+Instance replacement is required for re-execution
+
+This is one of the most misunderstood EC2 behaviors.
+
+2️⃣ Execution Order Is Linear
+
+Script steps execute top to bottom
+
+No dependency graph
+
+No parallelism
+
+No rollback
+
+If step 3 fails, step 4 may never run, but EC2 does not care.
+
+3️⃣ Failures Are Silent
+
+Script errors:
+
+Do not stop instance launch
+
+Do not surface in EC2 console
+
+Do not change instance state
+
+The instance will still become RUNNING.
+
+This is why broken user data scripts are so dangerous.
+
+4️⃣ Instance State Is Independent
+
+EC2 launch success ≠ user data success
+
+Instance will be marked:
+
+pending → running
+
+Even if:
+
+Package installs failed
+
+Services didn’t start
+
+Script exited with error
+
+Your simulator correctly separates:
+
+Boot status ≠ application readiness
+
+5️⃣ Root Privileges by Default
+
+User data runs as root
+
+No sudo required
+
+Full system access
+
+This explains why:
+
+Miswritten scripts can break OS networking
+
+Bad commands can lock you out immediately
+
+6️⃣ No Automatic Retry
+
+AWS does not retry
+
+Cloud-init does not retry automatically
+
+Errors are terminal unless manually fixed
+
+This enforces:
+
+User data must be idempotent, defensive, and logged
+
+Why This Matters in Real Architecture
+Common Production Failures
+
+Instance is RUNNING but:
+
+App not installed
+
+Service not started
+
+Ports closed
+
+ASG keeps replacing instances thinking they are healthy
+
+Debugging is painful without logs
