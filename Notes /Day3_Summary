@@ -1,106 +1,81 @@
 EC2 Boot Executor Simulation (User Data Execution)
-What This Simulation Represents
 
-This simulates EC2 User Data execution during instance boot.
+⚠️ Note
+This code is NOT production-grade.
+It exists only to simulate EC2 behavior programmatically and to prove conceptual understanding, not to mirror AWS internals.
 
-User data is not a service, it is a one-time boot-time instruction executed by the instance itself.
+1️⃣ Code Explanation (What the Code Is Doing)
 
-Your simulator models the behavioral truth of EC2 boot — not the AWS internals — which is exactly correct for learning.
+This simulation models how EC2 executes a user data script during instance boot.
 
-Core Boot Execution Rules (Truth Model)
-1️⃣ Script Runs Only Once
+Core Flow:
+Accepts a user data script as input
+Breaks the script into ordered steps
+Executes each step sequentially
+Ignores failures (no crash, no retry)
+Marks the instance as RUNNING regardless of execution result
 
-User data executes only during first boot
+Behavioral Mapping:
+Simulation Logic	EC2 Reality
+Execute once	User data runs only on first boot
+Sequential steps	Shell script executes top → bottom
+Silent failure	EC2 does not block launch
+RUNNING state	Instance state independent of script
+Root execution	User data runs as root
+No retry	AWS does not retry failed user data
 
-Reboots do not re-run the script
+The simulator intentionally does not validate success, because EC2 does not either.
 
-Instance replacement is required for re-execution
+2️⃣ Why This Matters (Architectural Importance)
 
-This is one of the most misunderstood EC2 behaviors.
+User data is one of the most dangerous and misunderstood EC2 features.
+Real-World Failure Pattern
+Instance shows RUNNING
+Health checks fail
+Application missing
+Auto Scaling replaces instances endlessly
+Root cause: broken user data script
+This simulation explains why that happens.
 
-2️⃣ Execution Order Is Linear
+3️⃣ What I Learned From This Simulation
+Key Takeaways:
+EC2 boot success ≠ application success
+User data is best-effort, not guaranteed
+Silent failures are normal
+Logging is critical (cloud-init.log)
+Heavy boot logic is fragile
+Architectural Insight
+If your system depends on user data succeeding, your design is already weak.
+This pushes toward:
+Pre-baked AMIs
+Immutable infrastructure
 
-Script steps execute top to bottom
+Health checks at application level
 
-No dependency graph
+4️⃣ Mental Model (How to Think About It)
+Correct Mental Model
+Think of user data as:
+“A one-time shell script thrown into a black hole during boot.”
 
-No parallelism
+EC2:
+Does not wait
+Does not validate
+Does not retry
+Does not care
 
-No rollback
-
-If step 3 fails, step 4 may never run, but EC2 does not care.
-
-3️⃣ Failures Are Silent
-
-Script errors:
-
-Do not stop instance launch
-
-Do not surface in EC2 console
-
-Do not change instance state
-
-The instance will still become RUNNING.
-
-This is why broken user data scripts are so dangerous.
-
-4️⃣ Instance State Is Independent
-
-EC2 launch success ≠ user data success
-
-Instance will be marked:
-
-pending → running
-
-Even if:
-
-Package installs failed
-
-Services didn’t start
-
-Script exited with error
-
-Your simulator correctly separates:
-
-Boot status ≠ application readiness
-
-5️⃣ Root Privileges by Default
-
-User data runs as root
-
-No sudo required
-
-Full system access
-
-This explains why:
-
-Miswritten scripts can break OS networking
-
-Bad commands can lock you out immediately
-
-6️⃣ No Automatic Retry
-
-AWS does not retry
-
-Cloud-init does not retry automatically
-
-Errors are terminal unless manually fixed
-
-This enforces:
-
-User data must be idempotent, defensive, and logged
-
-Why This Matters in Real Architecture
-Common Production Failures
-
-Instance is RUNNING but:
-
-App not installed
-
-Service not started
-
-Ports closed
-
-ASG keeps replacing instances thinking they are healthy
-
-Debugging is painful without logs
+Execution Diagram (Mental Flow)
+INSTANCE LAUNCH
+      |
+      v
+USER DATA STARTS (root)
+      |
+      v
+Step 1 → Step 2 → Step 3
+      |
+   (error?)
+      |
+      v
+ERROR IGNORED
+      |
+      v
+INSTANCE STATE = RUNNING
