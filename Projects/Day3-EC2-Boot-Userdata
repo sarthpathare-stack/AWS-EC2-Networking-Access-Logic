@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+"""
+BOOT EXECUTOR SIMULATOR
+=======================
+Simulates EC2 user data script execution
+"""
+
+import time
+import random
+
+def simulate_boot_executor():
+    """Main boot executor simulation"""
+    print("=" * 60)
+    print("🚀 EC2 BOOT EXECUTOR SIMULATOR")
+    print("=" * 60)
+    print()
+    
+    # Sample user data scripts
+    sample_scripts = {
+        "1": """#!/bin/bash
+# Simple web server setup
+yum update -y
+yum install -y httpd
+systemctl start httpd
+systemctl enable httpd
+echo "<h1>Hello from $(hostname)</h1>" > /var/www/html/index.html""",
+        
+        "2": """#!/bin/bash
+# Setup with potential error
+apt-get update
+apt-get install -y nginx
+systemctl start nginx
+# This command might fail
+unknown_command_here
+echo "Setup complete" """,
+        
+        "3": """#!/bin/bash
+# Multi-step application setup
+echo "Starting application setup..."
+mkdir -p /opt/myapp
+cd /opt/myapp
+curl -O https://example.com/app.tar.gz
+tar -xzf app.tar.gz
+./install.sh
+echo "Application installed" """,
+        
+        "4": """#!/bin/bash
+# Custom user script
+USER_INPUT
+"""
+    }
+    
+    while True:
+        print("\nChoose an option:")
+        print("1. 🚀 Run sample script")
+        print("2. 📝 Enter custom script")
+        print("3. 🔄 Run multiple random tests")
+        print("4. 📖 View boot executor rules")
+        print("5. 🚪 Exit")
+        
+        choice = input("\nChoice (1-5): ").strip()
+        
+        if choice == "1":
+            print("\nSelect sample script:")
+            print("1. Simple Apache setup")
+            print("2. Nginx setup with potential error")
+            print("3. Multi-step app install")
+            
+            script_choice = input("\nChoice (1-3): ").strip()
+            if script_choice in sample_scripts:
+                script = sample_scripts[script_choice]
+                execute_user_data(script, f"Sample {script_choice}")
+        
+        elif choice == "2":
+            print("\n📝 Enter your user data script (end with empty line):")
+            print("Type 'END' on a new line when finished")
+            print()
+            
+            lines = []
+            while True:
+                line = input()
+                if line.strip() == "END":
+                    break
+                lines.append(line)
+            
+            script = "\n".join(lines)
+            if script:
+                execute_user_data(script, "Custom script")
+            else:
+                print("❌ No script provided")
+        
+        elif choice == "3":
+            print("\n🧪 Running multiple test scenarios...")
+            print("-" * 50)
+            
+            test_cases = [
+                ("Clean script", "echo 'Starting'\napt-get update\necho 'Done'", True),
+                ("Script with error", "echo 'Start'\nunknown_command\necho 'After error'", False),
+                ("Empty script", "", True),
+                ("Only comments", "# Just a comment\n# Another comment", True),
+                ("Permission denied", "touch /root/test.txt", False),
+            ]
+            
+            for name, script, should_succeed in test_cases:
+                print(f"\nTest: {name}")
+                execute_user_data(script, name)
+                time.sleep(1)
+        
+        elif choice == "4":
+            print("\n📖 BOOT EXECUTOR RULES:")
+            print("-" * 40)
+            print("1. 📜 Script runs only once at boot")
+            print("2. 👑 Runs with root privileges")
+            print("3. 🤫 Fails silently on errors")
+            print("4. 🏁 Instance marked RUNNING regardless")
+            print("5. 🔄 No automatic retry on failure")
+            print("6. ⏱️  Runs during instance initialization")
+            print("7. 📁 Stored in /var/lib/cloud/instance/")
+            print()
+            print("💡 Best practices:")
+            print("   • Add error checking in your script")
+            print("   • Log output to a file")
+            print("   • Use absolute paths")
+            print("   • Test scripts before deployment")
+        
+        elif choice == "5":
+            print("\n👋 Goodbye!")
+            break
+        
+        else:
+            print("❌ Invalid choice")
+
+def execute_user_data(script, script_name):
+    """Simulate user data script execution"""
+    print(f"\n{'='*60}")
+    print(f"🔧 EXECUTING: {script_name}")
+    print(f"{'='*60}")
+    
+    # Parse script lines
+    lines = script.strip().split('\n')
+    
+    if not lines or not script.strip():
+        print("📭 Empty script - nothing to execute")
+        print(f"\n✅ Instance state: RUNNING")
+        print(f"📊 Script result: SKIPPED (no content)")
+        return
+    
+    print(f"📏 Script length: {len(lines)} lines")
+    print(f"👑 Running with: root privileges")
+    print(f"\n📜 EXECUTION LOG:")
+    print("-" * 40)
+    
+    # Simulate execution
+    exit_code = 0
+    logs = []
+    
+    for i, line in enumerate(lines, 1):
+        # Skip empty lines and comments
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        
+        # Simulate command execution
+        print(f"  [{i:03d}] $ {stripped}")
+        
+        # Simulate execution time
+        time.sleep(0.3)
+        
+        # Random chance of failure (20%)
+        if random.random() < 0.2 and "echo" not in stripped.lower():
+            print(f"       ❌ Command failed (simulated error)")
+            exit_code = 1
+            # Continue to next line (fail silently)
+        else:
+            print(f"       ✅ OK")
+        
+        # Add to logs
+        logs.append(f"Line {i}: {stripped[:50]}{'...' if len(stripped) > 50 else ''}")
+    
+    # Final state
+    print(f"\n{'='*40}")
+    print("🏁 EXECUTION COMPLETE")
+    print(f"{'='*40}")
+    
+    print(f"\n📊 RESULTS:")
+    print(f"  Exit code: {exit_code}")
+    print(f"  Lines executed: {len([l for l in lines if l.strip() and not l.strip().startswith('#')])}")
+    
+    # Always mark as RUNNING
+    print(f"\n✅ Instance state: RUNNING")
+    
+    # Script result
+    if exit_code == 0:
+        print(f"📜 Script result: SUCCESS")
+    else:
+        print(f"📜 Script result: FAILED (but instance runs)")
+    
+    # Show what happened
+    print(f"\n📝 WHAT HAPPENED:")
+    print("  • Script executed line by line")
+    print("  • Errors were ignored (fail silently)")
+    print("  • Instance boot continued")
+    print("  • Script will not run again")
+    
+    # Store logs
+    print(f"\n📁 Logs stored in: /var/log/cloud-init-output.log")
+    print(f"📁 User data stored in: /var/lib/cloud/instance/user-data.txt")
+
+def simulate_boot_process():
+    """Simulate full boot process with user data"""
+    print("\n" + "="*60)
+    print("🖥️  FULL EC2 BOOT PROCESS SIMULATION")
+    print("="*60)
+    
+    steps = [
+        ("BIOS", "Starting system BIOS"),
+        ("Bootloader", "Loading GRUB bootloader"),
+        ("Kernel", "Booting Linux kernel"),
+        ("Init", "Starting systemd"),
+        ("Cloud-init", "Initializing cloud configuration"),
+        ("User-Data", "Executing user data script"),
+        ("Services", "Starting system services"),
+        ("Ready", "Instance is ready")
+    ]
+    
+    for step, desc in steps:
+        print(f"\n[{step}] {desc}")
+        time.sleep(0.5)
+        
+        if step == "User-Data":
+            print("  ⚡ Executing user data script...")
+            # Simulate a script
+            print("  $ apt-get update")
+            time.sleep(0.3)
+            print("  $ apt-get install -y nginx")
+            time.sleep(0.3)
+            
+            # Simulate possible error
+            if random.random() < 0.3:
+                print("  ❌ Package not found (ignored)")
+            
+            print("  ✅ User data execution complete")
+    
+    print(f"\n{'='*40}")
+    print("✅ INSTANCE STATE: RUNNING")
+    print(f"{'='*40}")
+
+def quick_demo():
+    """Quick demonstration"""
+    print("\n⚡ QUICK DEMO: User Data Execution")
+    print("-" * 50)
+    
+    script = """#!/bin/bash
+echo "Starting setup..."
+apt-get update
+apt-get install -y docker.io
+systemctl start docker
+# This might fail
+unknown_package_install
+echo "Setup attempted" """
+    
+    execute_user_data(script, "Demo Script")
+
+# Main entry point
+if __name__ == "__main__":
+    print("Choose mode:")
+    print("1. 🎮 Interactive simulator")
+    print("2. 🖥️  Full boot process simulation")
+    print("3. ⚡ Quick demo")
+    
+    mode = input("\nChoice (1-3): ").strip()
+    
+    if mode == "1":
+        simulate_boot_executor()
+    elif mode == "2":
+        simulate_boot_process()
+    elif mode == "3":
+        quick_demo()
+    else:
+        print("❌ Invalid choice")
